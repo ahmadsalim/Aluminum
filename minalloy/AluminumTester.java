@@ -80,7 +80,11 @@ public final class AluminumTester {
     	//Distribution of Alloy models wrt Aluminum models
     	FileOption optDistributionLog = new FileOption("-dl");
     	//Output verbosity
-    	IntOption optVerbosity = new IntOption("-v", 0);
+    	IntOption optVerbosity = new IntOption("-v", 0);    	
+    	// Force SB respect
+    	BooleanOption optSBRespect = new BooleanOption("-sbrespect");
+    	// Stop after n models
+    	IntOption optCutoff = new IntOption("-c", 0);
     	
     	CmdLineParser optParser = new CmdLineParser();
     	optParser.addOption(optInput);
@@ -90,6 +94,8 @@ public final class AluminumTester {
     	optParser.addOption(optSkolemDepth);
     	optParser.addOption(optDistributionLog);
     	optParser.addOption(optVerbosity);
+    	optParser.addOption(optSBRespect);
+    	optParser.addOption(optCutoff);
     	
     	try{
     		optParser.parse(args);
@@ -114,15 +120,17 @@ public final class AluminumTester {
     	System.out.println("-dl = " + optDistributionLog.value);
     	System.out.println("-sb = " + optSymmetryBreaking.value);
     	System.out.println("-iso = " + optIsomorphicSolutions.value);
+    	System.out.println("-sbrespect = " + optSBRespect.value);
     	
-    	test(optInput, optOutput, optSymmetryBreaking, optSkolemDepth, optIsomorphicSolutions, optDistributionLog, optVerbosity);
+    	test(optInput, optOutput, optSymmetryBreaking, optSkolemDepth, optIsomorphicSolutions, 
+    			optDistributionLog, optVerbosity, optSBRespect, optCutoff);
     }
 	
 	/**
 	 * Loads Kodkod's classes by loading a dummy spec.
 	 */
 	private static void test(FileOption optInput, FileOption optOutput, IntOption optSymmetryBreaking, IntOption optSkolemDepth, BooleanOption optIsomorphicSolutions,
-			FileOption optDistributionLog, IntOption optVerbosity) throws Err{
+			FileOption optDistributionLog, IntOption optVerbosity, BooleanOption optSBRespect, IntOption optCutoff) throws Err{
 		long startTime = System.currentTimeMillis();
 		
 		boolean logDistribution = optDistributionLog.value != null; 
@@ -144,6 +152,7 @@ public final class AluminumTester {
         MinA4Options aluminumOptions = new MinA4Options();
         A4Options alloyOptions = new A4Options();
         aluminumOptions.symmetry = optSymmetryBreaking.value;
+        aluminumOptions.forceRespectSB = optSBRespect.value;        
         aluminumOptions.skolemDepth = optSkolemDepth.value;
         alloyOptions.symmetry = optSymmetryBreaking.value;
         alloyOptions.skolemDepth = optSkolemDepth.value;
@@ -153,6 +162,13 @@ public final class AluminumTester {
 		int totalErrors = 0;
 		int minimalSolutions = 0;
 		int isomorphicMinimalSolutions = 0;
+			
+		try {
+			clearFile(optOutput.value);
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
 		
 		// Lots of concatenation to a long string. Best to use a buffer.
 		StringBuffer data = new StringBuffer();
@@ -166,30 +182,41 @@ public final class AluminumTester {
     			distributionLog.append("Executing command: " + command + " -----\n");
     			distributionLog.append("Alloy Solution\tMinimal Solution\tIsomorphism Group\tComparison\n");
     		}
-            System.out.print("Running Aluminum to build minimal solutions for command: " + command + ": ");
+            System.out.print("Running Aluminum to build minimal solutions for command: " + command + ": \n");
 
             // Clear out the cache:
             uniqueSolutions.clear();
+            
+            // This call will do an initial solution-hunt. 
         	MinA4Solution aluminum = MinTranslateAlloyToKodkod.execute_command(rep, world.getAllReachableSigs(), command, aluminumOptions);
         	List<MinSolution> initialSolutions = new ArrayList<MinSolution>();        	        	
-        	     
+        	        	        	
         	int dupes = 0;
-        	while(aluminum.satisfiable()){
-        		if(uniqueSolutions.add(aluminum.toString())){
+        	
+        	while(aluminum.satisfiable() && (optCutoff.value == 0 || optCutoff.value > initialSolutions.size())){
+        		// aluminum.toString() --- Alloy's renamed version of the instance
+        		//   dupes will be spotted here: dupes if would be DISPLAYED the same
+        		// but actually record the original, pre-alloy instance
+        		if(uniqueSolutions.add(aluminum.toString())){        		
         			initialSolutions.add(aluminum.getCurrentSolution());
-        		} 
+        		}
         		else {
-        			dupes++;
-        		}
-        			
-        		aluminum = aluminum.next();
+        			dupes ++;        		
+        		}        		
+        		        		
+        		//System.out.print(".");
+        		//System.out.println(aluminum.getCurrentSolution());
+        		//System.out.println(aluminum.toString());
+        		if((initialSolutions.size() + dupes) % 100 == 0)        			
+        			System.out.print("Fresh instance number: "+initialSolutions.size()+"; dupe count="+dupes+
+        					"; hash="+aluminum.toString().hashCode()+
+        					"; SBsat?="+aluminum.getCurrentSolution().isCanonical+"\n");
         		
-        		System.out.print(".");
-        		if(uniqueSolutions.size() % 50 == 0) {
-        			System.out.println("\nMin solns so far: "+uniqueSolutions.size()+" with "+dupes+" duplicates ignored.");
-        		}
+        		// Is there another solution?
+        		aluminum = aluminum.next();        			
         	}
 
+        	System.out.print("\nTotal min instances: "+initialSolutions.size()+"; dupe count="+dupes);
         	minimalSolutions = initialSolutions.size();
         	
         	// Per command
@@ -200,11 +227,31 @@ public final class AluminumTester {
         	
         	// Print the number here and later on (in case it takes a long time to run)
         	System.out.println("\n  Got "+minimalSolutions+" minimal solutions from Aluminum.");
-
+        	System.out.println("\nTime since started translation: "+(System.currentTimeMillis()-startTime)+"ms.");
+        	
+        	
+        	
+        	////////////////////////////////////////////
+        	////////////////////////////////////////////
+        	// WARNING:
+        	// Removing "remainder" relations in Aluminum
+        	// means that the ontologies of instances returned
+        	// by the two tools will not match. More work needs to
+        	// be done if we are going to re-use this containment checking code.
+        	////////////////////////////////////////////
+        	////////////////////////////////////////////        	
+        	
+        	
+        	
+        	
+        	
+        	
+        	
+        	
         	List<AluminumSolution> aluminumSolutionsWithIsos = new ArrayList<AluminumSolution>();
 
         	// groupindex -> dupe groupindices
-        	Map<Integer, Set<Integer>> dupeSolnMap = new HashMap<Integer, Set<Integer>>();
+        /*	Map<Integer, Set<Integer>> dupeSolnMap = new HashMap<Integer, Set<Integer>>();
         	Set<Integer> isDupeOrdered = new HashSet<Integer>();
         	if(optIsomorphicSolutions.value){
         		System.out.println("Building isomorphic solutions for the minimal solutions ....");
@@ -246,7 +293,10 @@ public final class AluminumTester {
         			ordinalSumAluminum += (i+1);
         			wantToSeeClassesForOrdinal.add(i); // not i+1 (classes start with index 0)
         		}
+        	        	
         	}        	        	        	        	
+        	
+        	*/
         	
             System.out.print("Running Alloy for command: " + command + ": ");        	
             
@@ -266,7 +316,7 @@ public final class AluminumTester {
         	
         	int counter = 0;        	
         	int tries = 0;
-        	while(alloy.satisfiable())
+        	while(alloy.satisfiable() && (optCutoff.value == 0 || optCutoff.value > counter))
         	{        		
         		        		        		
         		// Do not count this solution if Alloy wouldn't display it (VITAL CHECK for fairness):
@@ -290,7 +340,7 @@ public final class AluminumTester {
         	//	System.out.println("Alloy solution "+counter+" had this many atoms actually used: "+alloy.getAllAtoms());
         		
         		if(counter % nEveryFewChecks == 0)
-        			System.out.print("Checking solution " + counter + ": ");
+        			System.out.println("Checking solution " + counter + "...");
         		
         		int dotCounter = 1;
         		for(int iAlumWithIsoIndex = 0; iAlumWithIsoIndex < aluminumSolutionsWithIsos.size(); iAlumWithIsoIndex++)
@@ -317,7 +367,7 @@ public final class AluminumTester {
     				}
     				
     				// Logging cone distribution
-    				if(logDistribution)
+    			/*	if(logDistribution && dupeSolnMap.containsKey(thisAlumIsomorph.groupIndex))
     				{						
     					
     					//////////
@@ -329,6 +379,7 @@ public final class AluminumTester {
     						{
     							ordinalSumAlloy += counter; // Not +1; alloy starts with from 1 not 0
     							minInstanceCoverage = counter;
+    							    	    							    							
     							wantToSeeClassesForOrdinal.removeAll(dupeSolnMap.get(thisAlumIsomorph.groupIndex));    							
     							
     							System.out.println("  MATCH for Ordinal Sum: "+thisAlumIsomorph.groupIndex+
@@ -345,10 +396,10 @@ public final class AluminumTester {
     					{
     						distributionLog.append(counter + "\t" + iAlumWithIsoIndex + "\t" + aluminumSolutionsWithIsos.get(iAlumWithIsoIndex).groupIndex + "\t" + comparison + "\n");
     					}
-    				}
+    				}*/
         		}
         		
-        		
+        		/*
         		if(!foundMinimal){
         			System.out.println("Error!");
         			data.append("Couldn't find a minimal solution for: \n\n" + alloy.getCurrentSolution().toString() + "\n" + 
@@ -369,13 +420,14 @@ public final class AluminumTester {
     					System.out.println("OK!");        			
         		}
         			
-        		
+        		*/
+    				
         		alloy = alloy.next();
         	} // end for each Alloy model
         	
         	System.out.println("OS Alloy: "+ordinalSumAlloy);
         	System.out.println("OS Aluminum: "+ordinalSumAluminum);
-        	if(logDistribution)
+      /*  	if(logDistribution)
         	{
         		distributionLog.append("OS Alloy:\t"+ordinalSumAlloy+"\n");
         		distributionLog.append("OS Aluminum:\t"+ordinalSumAluminum+"\n");
@@ -384,15 +436,33 @@ public final class AluminumTester {
         	if(optIsomorphicSolutions.value && logDistribution)
         	{
         		distributionLog.append("Number of dupes:\t"+isDupeOrdered.size()+"\n");
-        	}
+        	}*/
         	System.out.println("Number of Alloy solutions processed (not counting same-string dupes): "+counter);
         	
         	// Separator to help find break between command results 
         	System.out.println("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+        	
+        	
+         	try {
+        		writeData(optOutput.value, "File: " + optInput.value + ": ");
+				writeData(optOutput.value, "Command: " + command + ": ");
+				writeData(optOutput.value, "Alloy scenarios: " + counter );
+				writeData(optOutput.value, "Aluminum scenarios: " + minimalSolutions);
+				writeData(optOutput.value, "SB = " + optSymmetryBreaking.value);
+				writeData(optOutput.value, "Force Respect SB = " + optSBRespect.value);
+				writeData(optOutput.value, "Cutoff = " + optCutoff.value);
+				writeData(optOutput.value, "\n");
+				
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+        	        
+        	
         } // end for each command
         
     	//Writing the output
-    	if(foundError){
+    /*	if(foundError){
     		System.out.println(totalErrors + " inconsistencies were found! Please read the output file for details.");
             try{
         		writeData(optOutput.value, data.toString());
@@ -422,24 +492,32 @@ public final class AluminumTester {
             	System.err.println(e.getMessage());
             	System.exit(0);
             }        		
-		}
+		}*/
 
     	
     	System.out.println("Total Execution Time: " + (System.currentTimeMillis() - startTime));
     	System.out.println("Inconsistencies: " + totalErrors);
     	System.out.println("Minimal Solutions: " + minimalSolutions);
-    	if(optIsomorphicSolutions.value)
-    		System.out.println("Detected isomorphs of the minimal solutions for comparison: " + isomorphicMinimalSolutions);    	
+    	/*if(optIsomorphicSolutions.value) {
+    		System.out.println("Detected isomorphs of the minimal solutions for comparison: " + isomorphicMinimalSolutions);
+    	}*/
 	}
 	
+	
+	
 	private static void writeData(File file, String data) throws IOException{
-		FileWriter fstream = new FileWriter(file);
-		BufferedWriter out = new BufferedWriter(fstream);
-		
-		out.write(data);
-		
+		FileWriter fstream = new FileWriter(file, true);
+		BufferedWriter out = new BufferedWriter(fstream);		
+		out.write(data+"\n");		
 		out.close();
 	}
+	
+	static void clearFile(File file) throws IOException{
+		FileWriter fstream = new FileWriter(file);
+		BufferedWriter out = new BufferedWriter(fstream);					
+		out.close();
+	}
+	
 	
 	
 	private static List<AluminumSolution> getIsomorphicSolutions(List<MinSolution> inputInstances, Bounds skolemBounds, 
@@ -504,3 +582,6 @@ public final class AluminumTester {
 
 // Without -iso here, there is an immediate mismatch. Don't panic: it's just because no iso.
 // -i "C:\Users\Tim\research\dj-git\test-git-sizes.als" -o "C:\Users\Tim\research\dj-git\testout.txt" -dl "C:\Users\Tim\research\dj-git\dl.txt"
+
+// -i "C:\vbox\nat2\props.als" -o "C:\vbox\nat2\testout.txt" -dl "C:\vbox\nat2\dl.txt" -sb 1000
+// -i "C:\vbox\nat2\javatypes.als" -o "C:\vbox\nat2\testout.txt" -dl "C:\vbox\nat2\dl.txt"

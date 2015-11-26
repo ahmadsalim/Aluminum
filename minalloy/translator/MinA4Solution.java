@@ -36,6 +36,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
 
+import javax.swing.JOptionPane;
+
 import org.sat4j.specs.ContradictionException;
 import org.sat4j.specs.TimeoutException;
 
@@ -232,8 +234,9 @@ public final class MinA4Solution {
      * @param expected - whether the user expected an instance or not (1 means yes, 0 means no, -1 means the user did not express an expectation)
      */
     MinA4Solution(String originalCommand, int bitwidth, int maxseq, Set<String> stringAtoms, Collection<String> atoms, final A4Reporter rep, MinA4Options opt, int expected) throws Err {
-        opt = opt.dup();
-                
+            	
+    	opt = opt.dup();                        
+    	
         this.solutionStack = new Stack<SolutionStackElement>();
         this.currentSolution = null;
         this.unrolls = opt.unrolls;
@@ -311,7 +314,8 @@ public final class MinA4Solution {
             solver.options().setReporter(myReporter);
         }
         solver.options().setSymmetryBreaking(sym);
-        solver.options().setSkolemDepth(opt.skolemDepth);
+        solver.forceRespectSB = opt.forceRespectSB;
+        solver.options().setSkolemDepth(opt.skolemDepth);        
         solver.options().setBitwidth(bitwidth);
         solver.options().setIntEncoding(Options.IntEncoding.TWOSCOMPLEMENT);
         if(originalOptions.logMinimizationHistory)
@@ -333,7 +337,7 @@ public final class MinA4Solution {
         //Pass the solutionStack to the next iterator.
         solutionStack = old.solutionStack;
         Instance inst = null;
-        if(currentSolution == null){
+        if(currentSolution == null){        	        
         	this.currentSolution = old.kEnumerator.next();
         	inst = this.currentSolution.instance();
         }
@@ -908,8 +912,8 @@ public final class MinA4Solution {
     /** Solve for the solution if not solved already; if cmd==null, we will simply use the lowerbound of each relation as its value. */
     MinA4Solution solve(final A4Reporter rep, Command cmd, MinSimplifier simp, boolean tryBookExamples) throws Err, IOException {
         // If already solved, then return this object as is
-        if (solved) return this;
-
+        if (solved) return this;        
+        
         // If cmd==null, then all four arguments are ignored, and we simply use the lower bound of each relation
         if (cmd==null) {
            Instance inst = new Instance(bounds.universe());
@@ -957,7 +961,14 @@ public final class MinA4Solution {
         solved[0] = false; // this allows the reporter to report the # of vars/clauses
         for(Relation r: bounds.relations()) { formulas.add(r.eq(r)); } // Without this, kodkod refuses to grow unmentioned relations
         fgoal = Formula.and(formulas);
-
+        //JOptionPane.showMessageDialog(null, "SOLVING: "+fgoal);
+        //JOptionPane.showMessageDialog(null, "BOUNDS: "+bounds);
+        
+        //PrintWriter out = new PrintWriter("bounds_output.txt");
+        //out.println(formulas);
+        //out.println(bounds);
+        //out.close();
+        
         rep.debug("Begin solveAll()\n");
         Iterator<MinSolution> solution = solver.solveAll(fgoal, bounds);
         
