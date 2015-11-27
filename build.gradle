@@ -1,0 +1,25 @@
+apply plugin: 'java'
+
+buildscript {
+  repositories {
+    maven {
+      url "https://plugins.gradle.org/m2/"
+    }
+  }
+  dependencies {
+    classpath group:'com.cinnober.gradle', name: 'semver-git', version: '2.2.2'
+  }
+}
+
+ext.nextVersion = "0.10.1"
+
+apply plugin: 'com.cinnober.gradle.semver-git'
+
+repositories {
+  mavenCentral()
+}
+
+dependencies {
+  compile group: 'org.sat4j', name: 'org.sat4j.core', version: '2.3.1+'
+  compile files('libs/kodkod.jar')
+}
