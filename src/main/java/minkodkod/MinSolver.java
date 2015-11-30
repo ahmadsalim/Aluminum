@@ -1081,7 +1081,7 @@ public final class MinSolver {
 		 */
 		private void claimSATSolver() {
 			
-//			if(translation != null)
+			if(translation != null)
 				logger.debug("before claim: "+((MinSATSolver)translation.cnf()).printConstraints());
 
 			
