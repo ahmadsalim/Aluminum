@@ -36,8 +36,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.StringTokenizer;
 
-import javax.swing.JOptionPane;
-
 import org.sat4j.specs.ContradictionException;
 import org.sat4j.specs.IConstr;
 import org.sat4j.specs.TimeoutException;
@@ -56,6 +54,9 @@ import kodkod.instance.TupleSet;
 import kodkod.util.ints.IntIterator;
 import kodkod.util.ints.IntSet;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 /** 
  * From Kodkod:
@@ -71,6 +72,9 @@ import kodkod.util.ints.IntSet;
  * although one could be; all minimization is currently done in each MinSolutionIterator.
  */
 public final class MinSolver {
+
+  private final static Logger logger = LoggerFactory.getLogger(MinSolver.class);
+
 	private final Options options;
 	private final MinExtraOptions extraOptions;	
 	
@@ -194,7 +198,7 @@ public final class MinSolver {
 		if(msiterator.trivial)
 		{
 			// Disable augmentation and redirect them to the set of consist. facts (for now):
-			JOptionPane.showMessageDialog(null, "The spec given was trivially satisfiable, and so it had only one minimal model (shown),\n"+
+			logger.info( "The spec given was trivially satisfiable, and so it had only one minimal model (shown),\n"+
 			"to which any relational fact in the set of consistent facts may be added without consequence.\n\n"+
 					"Explicit exploration is unavailable.");
 			return msiterator;
@@ -273,7 +277,7 @@ public final class MinSolver {
 				results.add(r, tuples);							
 			}
 			
-			//JOptionPane.showMessageDialog(null, "getConsistentFacts: "+results);			
+			logger.debug("getConsistentFacts: "+results);			
 			return results;
 		}
 
@@ -558,7 +562,7 @@ public final class MinSolver {
 			}
 		}
 		
-		//JOptionPane.showMessageDialog(null, debug);
+		//logger.debug(debug.toString());
 		
 		if(tuple == null) //There is no such tuple
 			throw new ExplorationException("No matching tuple found for the given augmentation string: "+inputStr);
@@ -797,7 +801,7 @@ public final class MinSolver {
 					}
 				}
 				catch(ContradictionException e){
-					JOptionPane.showMessageDialog(null, "CONTRADICTION exception in nonTrivialSolution()");
+					logger.info("CONTRADICTION exception in nonTrivialSolution()");
 				}
 				
 				////////////////////////////////////////////////////////
@@ -837,7 +841,7 @@ public final class MinSolver {
 						}
 																								
 						try{	
-							//JOptionPane.showMessageDialog(null, translation.permutations);
+							logger.debug(translation.permutations.toString());
 							// Add the cone restriction for this model:
 							addConeRestriction(notModel, internalSolver);
 							// Add the cone restriction for all (safe) adjacent transpositions.
@@ -849,7 +853,7 @@ public final class MinSolver {
 							// This iterator is now out of models. Either we just gave the empty model,
 							// or a cone restriction clause has resulted in a contradiction. So make sure
 							// that this iterator never yields a model again:
-							JOptionPane.showMessageDialog(null, "Contradiction; out of models. Augmentation will be disabled.");
+							logger.info("Contradiction; out of models. Augmentation will be disabled.");
 							//final long endSolveU = System.currentTimeMillis();				
 							//final MinStatistics statsU = new MinStatistics(translation, translTime, endSolveU - startSolve);
 							//unsatSolution = unsat(translation, statsU);	
@@ -971,7 +975,7 @@ public final class MinSolver {
 				addConeRestriction(permNotModel, internalSolver);								
 				permCounter++;								
 				//System.out.println("Added perm. cone restriction "+permCounter);
-				//JOptionPane.showMessageDialog(null, permCounter+" Added restriction. notModel="+notModel+"\naPerm="+aPerm+"\npermNotModel="+permNotModel);				
+				logger.debug(permCounter+" Added restriction. notModel="+notModel+"\naPerm="+aPerm+"\npermNotModel="+permNotModel);				
 			}			
 		}
 
@@ -1058,7 +1062,7 @@ public final class MinSolver {
 					//String transStr = MinTwoWayTranslator.printTranslation(translation, 
 					//		((MyReporter)options.reporter()).skolemBounds,
 					//		mapVarToRelation);
-					//JOptionPane.showMessageDialog(null, transStr);
+				  //	logger.debug(transStr);
 					
 					setLastSolution(nonTrivialSolution());
 				} catch (TrivialFormulaException tfe) {
@@ -1078,7 +1082,7 @@ public final class MinSolver {
 		private void claimSATSolver() {
 			
 //			if(translation != null)
-				//JOptionPane.showMessageDialog(null, "before claim: "+((MinSATSolver)translation.cnf()).printConstraints());
+				logger.debug("before claim: "+((MinSATSolver)translation.cnf()).printConstraints());
 
 			
 			if(minSolver.activeIterator != null && minSolver.activeIterator != this)
@@ -1091,11 +1095,11 @@ public final class MinSolver {
 						addAllClauses();
 				}
 				catch(ContradictionException e){
-					JOptionPane.showMessageDialog(null, "CONTRADICTION exception in claimSATSolver()");
+					logger.info("CONTRADICTION exception in claimSATSolver()");
 				}
 			}
 			//if(translation != null)
-			//	JOptionPane.showMessageDialog(null, "after claim: "+((MinSATSolver)translation.cnf()).printConstraints());
+        //logger.debug("after claim: "+((MinSATSolver)translation.cnf()).printConstraints());
 			
 			//Set the activeIterator
 			minSolver.activeIterator = this;
@@ -1135,7 +1139,7 @@ public final class MinSolver {
 				else
 					sat = Boolean.valueOf(translation.cnf().solve(toIntCollection(allUnits)));
 		
-				//	JOptionPane.showMessageDialog(null, sat+" "+allUnits.size());
+				//	logger.debug(sat+" "+allUnits.size());
 				
 				if(sat) {	
 					try {
@@ -1143,7 +1147,7 @@ public final class MinSolver {
 					}
 					catch(ContradictionException e)
 					{
-						JOptionPane.showMessageDialog(null, "CONTRADICTION exception in minimize() call");
+						logger.info("CONTRADICTION exception in minimize() call");
 					}
 				}		
 										

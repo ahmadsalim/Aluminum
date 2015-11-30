@@ -21,6 +21,8 @@
  */
 package minkodkod.engine.fol2sat;
 
+import java.util.Arrays;
+
 import static kodkod.engine.bool.Operator.AND;
 
 import minkodkod.MinSATSolver;
@@ -37,6 +39,9 @@ import kodkod.engine.satlab.SATSolver;
 import kodkod.util.ints.IntSet;
 import kodkod.util.ints.Ints;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 // ALUMINUM: Modified to separate original and SBP clauses in the solver.
 
 /**
@@ -47,9 +52,11 @@ import kodkod.util.ints.Ints;
  */
 final class MinBool2CNFTranslator implements BooleanVisitor<int[], Object> {
 
+  private final static Logger logger = LoggerFactory.getLogger(MinBool2CNFTranslator.class);
+
 	static boolean addClause(MinSATSolver solver, boolean sbp, int[] clause)
-	{		
-		//JOptionPane.showMessageDialog(null, "Adding clause: "+Arrays.toString(clause));
+	{
+		logger.debug("Adding clause: "+Arrays.toString(clause));
 		if(sbp) {
 			return solver.addSBPClause(clause);			
 		}
@@ -58,7 +65,7 @@ final class MinBool2CNFTranslator implements BooleanVisitor<int[], Object> {
 	
 	static void addCircuitToSolver(MinSATSolver solver, boolean forSBP, BooleanFormula circuit, SATFactory factory, int numPrimaryVariables) {
 		
-		//JOptionPane.showMessageDialog(null, "Add circuit to solver: "+circuit);		
+		logger.debug("Add circuit to solver: "+circuit);
 		
 		final MinBool2CNFTranslator translator = new MinBool2CNFTranslator(solver, forSBP, numPrimaryVariables, circuit);
 //		System.out.println("--------------transls2-------------");
@@ -103,7 +110,7 @@ final class MinBool2CNFTranslator implements BooleanVisitor<int[], Object> {
 		// Add the SBP -- but also record the clauses so we can remove/re-add them later				
 		if(sbp instanceof BooleanFormula)
 		{
-			//JOptionPane.showMessageDialog(null, "SB: "+sbp);
+      logger.debug("SB: " + sbp);
 			addCircuitToSolver(minsolver, true, (BooleanFormula)sbp, factory, numPrimaryVariables);
 		}
 		// else do nothing (it's True; no clauses)				

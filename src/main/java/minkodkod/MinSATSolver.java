@@ -25,8 +25,7 @@ package minkodkod;
 import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.Set;
-
-import javax.swing.JOptionPane;
+import java.util.Arrays;
 
 import kodkod.engine.satlab.SATSolver;
 
@@ -37,6 +36,9 @@ import org.sat4j.specs.ISolver;
 import org.sat4j.specs.IVecInt;
 import org.sat4j.specs.IteratorInt;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Implementor of Kodkod's SATSolver interface. Used as a wrapper atop SAT4J, 
  * but more importantly this class allows the caller to activate and deactivate
@@ -44,6 +46,8 @@ import org.sat4j.specs.IteratorInt;
  * for use by consistent-fact generation. 
  */
 public final class MinSATSolver implements SATSolver {
+  private final static Logger logger = LoggerFactory.getLogger(MinSATSolver.class);
+
 	private ISolver solver;
 	private final ReadOnlyIVecInt wrapper;
 	private Boolean sat; 
@@ -100,18 +104,18 @@ public final class MinSATSolver implements SATSolver {
 				// Unit clauses should have been moved to sbpUnitClauses already,
 				// so safe to do this without checking for UnitClause
 				IConstr toRemove = solver.addClause(wrapper.wrap(lits));
-				//JOptionPane.showMessageDialog(null, toRemove);
+				logger.debug(toRemove.toString());
 				if(toRemove != null) 
 				{					
 					toRemoveSBP.add(toRemove);
 				}
 			} catch (ContradictionException e) {				
 				sat = Boolean.FALSE;		
-				JOptionPane.showMessageDialog(null, "CONTRADICTION EXCEPTION in activateSBP");
+				logger.info("CONTRADICTION EXCEPTION in activateSBP");
 			}
 		}
 		
-		//JOptionPane.showMessageDialog(null, "asbp:"+solver.nConstraints());
+		logger.debug("asbp:"+solver.nConstraints());
 		sbpActive = true;	
 		return true;
 	}
@@ -134,7 +138,7 @@ public final class MinSATSolver implements SATSolver {
 		}
 		
 		// s/b same size
-		//JOptionPane.showMessageDialog(null, "dsbp:"+(foo-solver.nConstraints())+"; "+toRemoveSBP.size());
+		//logger.debug("dsbp:"+(foo-solver.nConstraints())+"; "+toRemoveSBP.size());
 		
 		toRemoveSBP.clear();
 		sbpActive = false;
@@ -219,7 +223,7 @@ public final class MinSATSolver implements SATSolver {
 			//if (!Boolean.FALSE.equals(sat)) {
 				clauses++;
 				solver.addClause(wrapper.wrap(lits));
-				//JOptionPane.showMessageDialog(null,Arrays.toString(lits));
+				logger.debug(Arrays.toString(lits));
 //				for(int lit : lits) {
 //					System.out.print(lit + " ");
 //				}
@@ -229,7 +233,7 @@ public final class MinSATSolver implements SATSolver {
 			
 		} catch (ContradictionException e) {
 			sat = Boolean.FALSE;
-			JOptionPane.showMessageDialog(null, "CONTRADICTION EXCEPTION in addClause");
+			logger.debug("CONTRADICTION EXCEPTION in addClause");
 		}
 		return false;
 	}
@@ -271,7 +275,7 @@ public final class MinSATSolver implements SATSolver {
 			
 				if(toRemove != null)
 				{
-					//JOptionPane.showMessageDialog(null, "toRemove="+toRemove);
+					logger.debug("toRemove="+toRemove);
 					toRemoveSBP.add(toRemove);
 				}			
 			}
@@ -279,7 +283,7 @@ public final class MinSATSolver implements SATSolver {
 			return true;			
 		} catch (ContradictionException e) {
 			sat = Boolean.FALSE;
-			JOptionPane.showMessageDialog(null, "CONTRADICTION EXCEPTION in addSBPClause");
+			logger.info("CONTRADICTION EXCEPTION in addSBPClause");
 		}
 		return false;
 	}
@@ -326,13 +330,13 @@ public final class MinSATSolver implements SATSolver {
 				ii++;
 			}
 							
-			//JOptionPane.showMessageDialog(null, "assumptions (+sbp):"+Arrays.toString(together));
+			logger.debug("assumptions (+sbp):"+Arrays.toString(together));
 			
 			return new VecInt(together);
 		}
 		else
 		{
-			//JOptionPane.showMessageDialog(null, "assumptions (-sbp):"+Arrays.toString(assumptions));
+			logger.debug("assumptions (-sbp):"+Arrays.toString(assumptions));
 			return new VecInt(assumptions);
 		}
 	}
@@ -378,8 +382,7 @@ public final class MinSATSolver implements SATSolver {
 			String s = "";
 			for(int ii=0;ii<aSolver.nConstraints();ii++)
 				s+= aSolver.getIthConstr(ii)+", "+((ii%5 ==0)?"\n":"");
-			//JOptionPane.showInputDialog("",s);
-			JOptionPane.showMessageDialog(null,s);
+			logger.info(s);
 			*/
 			
 		/*	ISolver sol2 = SolverFactory.instance().defaultSolver();
@@ -401,22 +404,21 @@ public final class MinSATSolver implements SATSolver {
 								
 			} catch (ContradictionException e) {
 				
-				JOptionPane.showMessageDialog(null,"CONTRADICTION!");
+				logger.info("CONTRADICTION!");
 			}
 			
 			List<Integer> tempunits = new ArrayList<Integer>(sbpUnitClauses);
 			tempunits.add(1);
 			tempunits.add(-2);
 			
-			//JOptionPane.showMessageDialog(null, sol2.isSatisfiable(new VecInt(new int[] {1, -2}))+s); // true ???
-			JOptionPane.showMessageDialog(null, sol2.isSatisfiable(new VecInt(MinSolver.MinSolutionIterator.toIntCollection(tempunits)))+s); // true ???
+			//logger.debug(sol2.isSatisfiable(new VecInt(new int[] {1, -2}))+s); // true ???
+			logger.info(sol2.isSatisfiable(new VecInt(MinSolver.MinSolutionIterator.toIntCollection(tempunits)))+s); // true ???
 			
 			org.sat4j.minisat.core.Solver aSolver = (org.sat4j.minisat.core.Solver) sol2;
 			
 			for(int ii=0;ii<aSolver.nConstraints();ii++)
 				s+= aSolver.getIthConstr(ii)+", "+((ii%5 ==0)?"\n":"");
-			//JOptionPane.showInputDialog("",s);
-			JOptionPane.showMessageDialog(null,s);
+			logger.info(s);
 			*/
 			
 			/*s ="SB clauses: ";
@@ -429,7 +431,7 @@ public final class MinSATSolver implements SATSolver {
 			{
 				s += lit + " ";				
 			}
-			JOptionPane.showMessageDialog(null,s);
+			logger.info(s);
 			*/
 			
 			if(sat && saveModel)
